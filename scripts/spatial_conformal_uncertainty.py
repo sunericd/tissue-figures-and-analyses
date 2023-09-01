@@ -1,3 +1,10 @@
+'''
+Makes and saves gene expression predictions made on cross-validation folds.
+This script should be run first to generate the intermediate results that are necessary for other analyses.
+
+Example: python spatial_conformal_uncertainty.py Dataset15 10 10 4 1 knn_spage_tangram --save_intermediate --non-symmetric
+'''
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -19,22 +26,32 @@ from TISSUE.tissue.utils import *
 import logging
 logging.getLogger("imported_module").setLevel(logging.WARNING)
 
+from warnings import simplefilter
+simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
+
+
 import argparse
 
+# set up arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("dataset", help="name of dataset folder in DataUpload/")
 parser.add_argument("n_cv_folds", help="number of CV folds to perform", type=int)
 parser.add_argument("n_inner_folds", help="either 'all' or an integer for n_folds in predict_gene_expression()", type=str)
-parser.add_argument("k_gene", help="number of gene groups", type=int)
-parser.add_argument("k_cell", help="number of cell groups", type=int)
+parser.add_argument("k_gene", help="number of gene groups", type=str)
+parser.add_argument("k_cell", help="number of cell groups", type=str)
+parser.add_argument("prediction_models", help="prediction model strings separated by '_'", type=str)
 parser.add_argument('--save_intermediate', action='store_true')
 parser.add_argument('--dont_save_intermediate', dest='save_intermediate', action='store_false')
 parser.set_defaults(save_intermediate=True)
 parser.add_argument('--symmetric', action='store_true')
 parser.add_argument('--non-symmetric', dest='symmetric', action='store_false')
 parser.set_defaults(symmetric=True)
+parser.add_argument('--preprocess_RNA', action='store_true')
+parser.add_argument('--no-preprocess_RNA', dest='preprocess_RNA', action='store_false')
+parser.set_defaults(preprocess_RNA=True)
 args = parser.parse_args()
 
+# load parameters from arguments
 dataset_name = args.dataset
 ncvfolds = args.n_cv_folds
 n_folds = args.n_inner_folds
@@ -44,9 +61,14 @@ else:
     n_folds = int(n_folds)
 k_gene = args.k_gene
 k_cell = args.k_cell
+if k_gene != 'auto':
+    k_gene = int(k_gene)
+if k_cell != 'auto':
+    k_cell = int(k_cell)
 save_intermediate = args.save_intermediate
 symmetric = args.symmetric
-methods = ["knn", "spage", "tangram"]
+methods = list(args.prediction_models.split("_"))
+preprocess_RNA = args.preprocess_RNA
 alpha_levels = np.linspace(0.01, 0.99, 1000)
 
 savedir = "SCPI_k"+str(k_gene)+"_k"+str(k_cell)
@@ -65,7 +87,8 @@ adata.var_names = [x.lower() for x in adata.var_names]
 RNAseq_adata.var_names = [x.lower() for x in RNAseq_adata.var_names]
 
 # preprocess RNAseq data
-preprocess_data(RNAseq_adata, standardize=False, normalize=True)
+if preprocess_RNA is True:
+    preprocess_data(RNAseq_adata, standardize=False, normalize=True)
 
 # subset spatial data into shared genes
 gene_names = np.intersect1d(adata.var_names, RNAseq_adata.var_names)
@@ -83,22 +106,17 @@ predict_time_col = []
 npredict_col = []
 conformalize_time_col = []
 
-adata_copy = adata.copy()
-
 # set fold id variable
 fold_ids = np.zeros(len(adata.var_names))
 for i, fold in enumerate(folds):
     fold_ids[adata.var_names.isin(fold)] = i
 adata.var["fold"] = fold_ids.copy()
 
+# make copy
+adata_copy = adata.copy()
 
 # results dict
 res_dict = {}
-
-Uij_all = []
-Sij_all = []
-Sij_all_lo = []
-Sij_all_hi = []
 
 # try different methods and make predictions
 for method in methods:
@@ -123,7 +141,6 @@ for method in methods:
         # Spatial Graph
         start_time = time.time()
         build_spatial_graph(sub_adata, method="fixed_radius", n_neighbors=15)
-        #calc_adjacency_weights(sub_adata, method="cosine")
         graph_time_col.append(time.time() - start_time)
         
         # Predict expression
@@ -158,18 +175,13 @@ for method in methods:
         
         start_time = time.time()
         
-        # subset data
+        # get test and calibration genes
         predicted = obs_name
         test_genes = target_genes.copy()
         calib_genes = [gene for gene in gene_names if gene not in test_genes]
-        test_idxs = [np.where(sub_adata.obsm[predicted].columns==gene)[0][0] for gene in test_genes]
-        calib_idxs = [np.where(sub_adata.obsm[predicted].columns==gene)[0][0] for gene in calib_genes]
-        
         
         # Conformalize and save
         sub_adatac = sub_adata.copy()
-        #conformalize_spatial_uncertainty(sub_adatac, predicted, calib_genes, weight="exp_cos", mean_normalized=True,
-        #                                 grouping_method="kmeans_gene", k=4, n_pc=15)
         conformalize_spatial_uncertainty(sub_adatac, predicted, calib_genes, weight="exp_cos", mean_normalized=False, add_one=True,
                                          grouping_method="kmeans_gene_cell", k=k_gene, k2=k_cell, n_pc=15)
         
@@ -179,7 +191,6 @@ for method in methods:
         if save_intermediate is True:
             if not os.path.exists(savedir+"/"+dataset_name+"_intermediate/"):
                 os.makedirs(savedir+"/"+dataset_name+"_intermediate/")
-            #sub_adata.write("SCPI/"+dataset_name+"_intermediate/"+"fold"+str(i)+".h5ad")
             large_save(sub_adatac, savedir+"/"+dataset_name+"_intermediate/"+method+"/"+"fold"+str(i))
             if i == 0: # save folds for downstream work
                 np.save(savedir+"/"+dataset_name+"_intermediate/"+method+"/folds.npy", folds)

@@ -1,3 +1,9 @@
+'''
+Runs TISSUE multiple imputation t-test on specified dataset and testing setup (conditions)
+
+Example: python get_multi_ttest.py SCPI_k4_k1 Dataset15 100 ClusterName none none knn_spage_tangram --non-symmetric
+'''
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,6 +26,8 @@ import logging
 logging.getLogger("imported_module").setLevel(logging.WARNING)
 
 import argparse
+
+# set up arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("savedir", help="path to directory with intermediate results")
 parser.add_argument("dataset", help="name of dataset folder in DataUpload/")
@@ -27,11 +35,13 @@ parser.add_argument("n_imputations", help="number of imputations", type=int)
 parser.add_argument("condition", help="condition")
 parser.add_argument("group1", help="group1")
 parser.add_argument("group2", help="group2")
+parser.add_argument("prediction_models", help="prediction model strings separated by '_'", type=str)
 parser.add_argument('--symmetric', action='store_true')
 parser.add_argument('--non-symmetric', dest='symmetric', action='store_false')
 parser.set_defaults(symmetric=True)
 args = parser.parse_args()
 
+# load parameters from arguments
 savedir = args.savedir
 dataset_name = args.dataset
 n_imputations = args.n_imputations
@@ -39,7 +49,7 @@ condition = args.condition
 group1 = args.group1
 group2 = args.group2
 symmetric = args.symmetric
-methods = ["knn", "spage", "tangram"]
+methods = list(args.prediction_models.split("_"))
 
 if group1.lower() == "none":
     group1 = None
@@ -53,3 +63,9 @@ adata = group_multiple_imputation_testing_from_intermediate(dataset_name, method
 # save results in anndata
 preprocess_data(adata, standardize=False, normalize=False) # to keep consistent with predictions
 adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_TTEST.h5ad")
+# if error loading (i.e. metadata too large), then large_save instead
+try:
+    adata2 = sc.read_h5ad(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_TTEST.h5ad")
+except:
+    large_save(adata, savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_TTEST")
+    os.remove(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_TTEST.h5ad")

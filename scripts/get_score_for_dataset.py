@@ -1,3 +1,10 @@
+'''
+Generates predictions for a single fold where all except one filler gene are used as calibration genes.
+Unlike get_calibration.py, the output AnnData will have intermediate results in the metadata (e.g. cell centric variability, calibration scores, etc)
+
+Example: python get_score_for_dataset.py Dataset15 4 1 knn_spage_tangram --non-symmetric
+'''
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,20 +27,32 @@ import logging
 logging.getLogger("imported_module").setLevel(logging.WARNING)
 
 import argparse
+
+# set up arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("dataset", help="name of dataset folder in DataUpload/")
-parser.add_argument("k_gene", help="number of gene groups", type=int)
-parser.add_argument("k_cell", help="number of cell groups", type=int)
+parser.add_argument("k_gene", help="number of gene groups", type=str)
+parser.add_argument("k_cell", help="number of cell groups", type=str)
+parser.add_argument("prediction_models", help="prediction model strings separated by '_'", type=str)
 parser.add_argument('--symmetric', action='store_true')
 parser.add_argument('--non-symmetric', dest='symmetric', action='store_false')
 parser.set_defaults(symmetric=True)
+parser.add_argument('--preprocess_RNA', action='store_true')
+parser.add_argument('--no-preprocess_RNA', dest='preprocess_RNA', action='store_false')
+parser.set_defaults(preprocess_RNA=True)
 args = parser.parse_args()
 
+# load parameters from arguments
 dataset_name = args.dataset
 k_gene = args.k_gene
 k_cell = args.k_cell
+if k_gene != 'auto':
+    k_gene = int(k_gene)
+if k_cell != 'auto':
+    k_cell = int(k_cell)
 symmetric = args.symmetric
-methods = ["knn", "spage", "tangram"]
+preprocess_RNA = args.preprocess_RNA
+methods = list(args.prediction_models.split("_"))
 
 savedir = "SCPI_k"+str(k_gene)+"_k"+str(k_cell)
 
@@ -51,7 +70,8 @@ adata.var_names = [x.lower() for x in adata.var_names]
 RNAseq_adata.var_names = [x.lower() for x in RNAseq_adata.var_names]
 
 # preprocess RNAseq data
-preprocess_data(RNAseq_adata, standardize=False, normalize=True)
+if preprocess_RNA is True:
+    preprocess_data(RNAseq_adata, standardize=False, normalize=True)
 
 # subset spatial data into shared genes
 gene_names = np.intersect1d(adata.var_names, RNAseq_adata.var_names)
@@ -62,7 +82,6 @@ target_genes = np.array([np.setdiff1d(RNAseq_adata.var_names, gene_names)[0]])
 
 # build spatial graph
 build_spatial_graph(adata, method="fixed_radius", n_neighbors=15)
-#calc_adjacency_weights(adata, method="cosine")
 
 
 # iterate through different methods and: (1) impute gene expression, (2) compute calibration scores, (3) run DGEA with MI
@@ -92,3 +111,9 @@ for method in methods:
 
 # Save results
 adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
+# if error loading (i.e. metadata too large), then large_save instead
+try:
+    adata2 = sc.read_h5ad(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
+except:
+    large_save(adata, savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV")
+    os.remove(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
