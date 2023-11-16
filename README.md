@@ -1,7 +1,7 @@
 # TISSUE Figures and Analyses
 This repository contains all Jupyter notebooks and Python scripts for generating data and figures associated with the TISSUE manuscript. If you use this code or find it useful, we would appreciate it if you cite the relevant publication:
 
-Sun, E. D., Ma, R. & Zou, J. TISSUE: uncertainty-calibrated prediction of single-cell spatial transcriptomics improves downstream analyses. 2023.04.25.538326
+Sun ED, Ma R, Navarro Negredo P, Brunet A, Zou J. TISSUE: uncertainty-calibrated prediction of single-cell spatial transcriptomics improves downstream analyses.
 Preprint at https://doi.org/10.1101/2023.04.25.538326 (2023).
 
 
