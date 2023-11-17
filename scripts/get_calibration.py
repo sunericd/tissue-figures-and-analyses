@@ -56,9 +56,9 @@ with open(savedir+"/"+dataset_name+"_conformal_dict.pkl", "wb") as f:
                 
 # save results in anndata
 preprocess_data(adata, standardize=False, normalize=False) # to keep consistent with predictions
-adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_SCPI.h5ad")
 # if error loading (i.e. metadata too large), then large_save instead
 try:
+    adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_SCPI.h5ad")
     adata2 = sc.read_h5ad(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_SCPI.h5ad")
 except:
     large_save(adata, savedir+"/"+dataset_name+"_"+"_".join(methods)+"_SCPI")

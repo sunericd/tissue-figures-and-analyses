@@ -110,9 +110,9 @@ for method in methods:
                                      grouping_method="kmeans_gene_cell", k=k_gene, k2=k_cell, n_pc=15)
 
 # Save results
-adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
 # if error loading (i.e. metadata too large), then large_save instead
 try:
+    adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
     adata2 = sc.read_h5ad(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV.h5ad")
 except:
     large_save(adata, savedir+"/"+dataset_name+"_"+"_".join(methods)+"_NOCV")

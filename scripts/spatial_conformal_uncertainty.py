@@ -49,6 +49,9 @@ parser.set_defaults(symmetric=True)
 parser.add_argument('--preprocess_RNA', action='store_true')
 parser.add_argument('--no-preprocess_RNA', dest='preprocess_RNA', action='store_false')
 parser.set_defaults(preprocess_RNA=True)
+parser.add_argument('--all_genes', action='store_true')
+parser.add_argument('--filter_genes', dest='all_genes', action='store_false')
+parser.set_defaults(all_genes=True)
 args = parser.parse_args()
 
 # load parameters from arguments
@@ -69,6 +72,10 @@ save_intermediate = args.save_intermediate
 symmetric = args.symmetric
 methods = list(args.prediction_models.split("_"))
 preprocess_RNA = args.preprocess_RNA
+if args.all_genes is False:
+    min_cell_prevalence_spatial = 0.5
+else:
+    min_cell_prevalence_spatial = 0.0
 alpha_levels = np.linspace(0.01, 0.99, 1000)
 
 savedir = "SCPI_k"+str(k_gene)+"_k"+str(k_cell)
@@ -78,11 +85,13 @@ if os.path.isfile("DataUpload/"+dataset_name+"/Metadata.txt"):
     adata, RNAseq_adata = load_paired_datasets("DataUpload/"+dataset_name+"/Spatial_count.txt",
                                                 "DataUpload/"+dataset_name+"/Locations.txt",
                                                 "DataUpload/"+dataset_name+"/scRNA_count.txt",
-                                                spatial_metadata = "DataUpload/"+dataset_name+"/Metadata.txt")
+                                                spatial_metadata = "DataUpload/"+dataset_name+"/Metadata.txt",
+                                                min_cell_prevalence_spatial=min_cell_prevalence_spatial)
 else:
     adata, RNAseq_adata = load_paired_datasets("DataUpload/"+dataset_name+"/Spatial_count.txt",
                                                 "DataUpload/"+dataset_name+"/Locations.txt",
-                                                "DataUpload/"+dataset_name+"/scRNA_count.txt")
+                                                "DataUpload/"+dataset_name+"/scRNA_count.txt",
+                                                min_cell_prevalence_spatial=min_cell_prevalence_spatial)
 adata.var_names = [x.lower() for x in adata.var_names]
 RNAseq_adata.var_names = [x.lower() for x in RNAseq_adata.var_names]
 

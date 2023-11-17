@@ -62,9 +62,9 @@ adata = group_multiple_imputation_testing_from_intermediate(dataset_name, method
                 
 # save results in anndata
 preprocess_data(adata, standardize=False, normalize=False) # to keep consistent with predictions
-adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_WILCOXON.h5ad")
 # if error loading (i.e. metadata too large), then large_save instead
 try:
+    adata.write(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_WILCOXON.h5ad")
     adata2 = sc.read_h5ad(savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_WILCOXON.h5ad")
 except:
     large_save(adata, savedir+"/"+dataset_name+"_"+"_".join(methods)+"_MI_WILCOXON")
